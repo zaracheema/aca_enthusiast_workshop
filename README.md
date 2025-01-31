@@ -1,6 +1,8 @@
 # ACA Workshop
 
-Workshop flow for Azure Container Apps. 
+## Abstract 
+
+We’ll dissect Azure Container Apps best practices for infrastructure as code, refine your development process, and unravel the complexities of networking architecture. Get hands-on with advanced troubleshooting and debugging techniques that only the pros know. This is your chance to elevate your ACA game and connect directly with the masterminds behind the platform.
 
 
 ## General Flow and Time Allocation
@@ -13,12 +15,20 @@ Markitecture Overview (~10 min)
 - Networking
 
 General Problem Areas: (15-20 min)
-- Identity Issues (chicken & egg issue around registry pull) -- Anthony
-- Health Probes (settings, best defaults, what does it look like when they get misconfigured) -- Simon
-- Networking (basics (BYO Vnet vs. managed), PE, dispel myths)
+- Identity Issues (chicken & egg issue around registry pull)
+  - Follow-up Bicep deploy is impossible due to C&E MI issue
+  - Fix: Switch to user-assigned identity or switch to env-level system-assigned
+- Health Probes (settings, best defaults, what does it look like when they get misconfigured)
+  - Error: App takes too long to start listening and hence never launches
+  - Fix: Many, fix the probe
 - Scaling (CPU/Memory custom scalers, MI + scaling)
+  - Error: App scales on SB and misconfigure a few thing (identity)
+- Networking (basics (BYO Vnet vs. managed), PE, dispel myths)
+  - Error: Port blocking on custom Vnet port 80 ?
+  - Setup PE + App and then manually finish by hooking AFD to it by following: https://learn.microsoft.com/en-us/azure/container-apps/how-to-integrate-with-azure-front-door
 
-Hands On (25-30min)
+
+Hands On Lab (25-30min)
 
 
 Next Steps:
