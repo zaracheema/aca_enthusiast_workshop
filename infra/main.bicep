@@ -64,7 +64,8 @@ resource env 'Microsoft.App/managedEnvironments@2024-02-02-preview' = {
   name: acaEnvName
   location: containerAppsLocation
   properties: {
-    publicNetworkAccess: 'Disabled'
+    //publicNetworkAccess: 'Disabled'
+    publicNetworkAccess: 'Enabled'
 
     appLogsConfiguration: {
       destination: 'log-analytics'
@@ -138,6 +139,10 @@ resource containerApps 'Microsoft.App/containerApps@2024-02-02-preview' = [for i
           }
         }
       ]
+      scale: {
+        maxReplicas: '1'
+        minReplicas: '1'
+      }
     }
   }
   dependsOn: [
@@ -183,6 +188,7 @@ resource probeProblemsApp 'Microsoft.App/containerApps@2024-02-02-preview' = {
               httpGet: {
                 path: '/startup_fast'
                 port: 8080
+                scheme: 'HTTP'
                 httpHeaders: [
                   {
                     name: 'Custom-Header'
@@ -215,6 +221,10 @@ resource probeProblemsApp 'Microsoft.App/containerApps@2024-02-02-preview' = {
         }
 
       ] // containers
+      scale: {
+            maxReplicas: '1'
+            minReplicas: '1'
+      }
     }
   }
   dependsOn: [
