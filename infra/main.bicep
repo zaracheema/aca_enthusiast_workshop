@@ -89,29 +89,49 @@ var containerAppEnv = env
 
 // create a quickstart app
 // import these from the top respectively
-var containerAppName = 'quickstart'
 var location = containerAppsLocation
 
 
-var image = 'mcr.microsoft.com/k8se/quickstart:latest'
-resource containerApp 'Microsoft.App/containerApps@2024-02-02-preview' = {
-  name: containerAppName
-  location: location
+var containerAppNames = [
+  'quickstart'
+  'request-delay-app'
+  'request-logger-app'
+
+]
+
+var containerAppImages = [
+  'mcr.microsoft.com/k8se/quickstart:latest'
+  'docker.io/tdarolywala/test-images:long-running-http-conn'
+  'simon.azurecr.io/request-logger:latest'
+
+]
+
+var appPorts = [
+  '80'
+  '8080'
+  '8080'
+]
+
+
+// create multiple container apps
+resource containerApps 'Microsoft.App/containerApps@2024-02-02-preview' = [for i in range(0, length(containerAppNames)): {
+  name: containerAppNames[i]
+  location: containerAppsLocation
   properties: {
     environmentId: containerAppEnv.id
     workloadProfileName: 'Consumption'
     configuration: {
       ingress: {
         external: true
-        targetPort: 80
+        targetPort: appPorts[i]
         transport: 'Auto'
       }
     }
     template: {
       containers: [
         {
-          name: containerAppName
-          image: image
+          name: containerAppNames[i]
+          image: containerAppImages[i]
           resources: {
             cpu: '0.5'
             memory: '1Gi'
@@ -123,8 +143,84 @@ resource containerApp 'Microsoft.App/containerApps@2024-02-02-preview' = {
   dependsOn: [
     env
   ]
-}
+}]
 
+resource probeProblemsApp 'Microsoft.App/containerApps@2024-02-02-preview' = {
+  name: 'sickly-app'
+  location: containerAppsLocation
+  properties: {
+    environmentId: containerAppEnv.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 8080
+        transport: 'Auto'
+      }
+    }
+    template: {
+      containers: [
+        // resources 
+        {
+          name: 'health-probe-problems'
+          image: 'simon.azurecr.io/sick_app:latest'
+          resources: {
+            cpu: '1'
+            memory: '2Gi'
+          }
+          probes: [
+            {
+              type: 'readiness'
+              tcpSocket: {
+                port: 8081
+              }
+              initialDelaySeconds: 10
+              periodSeconds: 10
+              failureThreshold: 1
+            }
+            {
+              type: 'startup'
+              httpGet: {
+                path: '/startup_fast'
+                port: 8080
+                httpHeaders: [
+                  {
+                    name: 'Custom-Header'
+                    value: 'startup probe'
+                  }
+                ]
+              }
+              initialDelaySeconds: 3
+              failureThreshold: 1
+              periodSeconds: 3
+            }
+            /*{
+              type: 'startup'
+              httpGet: {
+                path: '/startup_slow'
+                port: 8080
+                httpHeaders: [
+                  {
+                    name: 'Custom-Header'
+                    value: 'startup probe'
+                  }
+                ]
+              }
+              initialDelaySeconds: 3
+              failureThreshold: 1
+              periodSeconds: 3
+            }*/
+          ] // probes
+          
+        }
+
+      ] // containers
+    }
+  }
+  dependsOn: [
+    env
+  ]
+}
 
 
 
@@ -159,6 +255,7 @@ module privateDns 'private_dns.bicep' = {
   ]
 }
 
+// var containerAppFqdns = [for i in range(0, length(containerAppNames)): containerApps[i].properties.configuration.ingress.fqdn]
 
 // create Frontdoor resources
 module afd 'afd.bicep' = {
@@ -166,12 +263,13 @@ module afd 'afd.bicep' = {
   params: {
     frontDoorProfileName: frontDoorEndpointName
     containerAppEnvId: env.id
-    containerAppFqdn: containerApp.properties.configuration.ingress.fqdn
+    containerAppFqdns: [for i in range(0, length(containerAppNames)): containerApps[i].properties.configuration.ingress.fqdn]
+    //containerApps: containerApps
     location: location
     appendix: appendix
   }
   dependsOn: [
-    env
+    env, containerApps
   ]
 }
 
