@@ -1,8 +1,9 @@
 targetScope = 'resourceGroup'
 
+var appendix = 'techconnect${uniqueString(resourceGroup().id)}'
 
 var acrName = 'acrtechconnect${uniqueString(resourceGroup().id)}'
-var acaEnvName = 'ace-techconnect'
+var acaEnvName = 'ace-${appendix}'
 var appName = 'app1'
 
 resource env 'Microsoft.App/managedEnvironments@2024-10-02-preview' existing = {
@@ -17,6 +18,7 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
   name: appName
   location: resourceGroup().location
   properties: {
+    environmentId: env.id
     configuration: {
       ingress: {
         external: true
@@ -52,7 +54,7 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
 
 var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 resource acrRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acr.id, acrPullRoleId, env.id)
+  name: guid(acr.id, acrPullRoleId, app.id)
   scope: acr
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
