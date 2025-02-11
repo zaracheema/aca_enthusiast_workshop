@@ -4,17 +4,13 @@
 
 param frontDoorProfileName string
 param containerAppEnvId string
-param containerAppFqdns array
-
-//param containerApps array
-//var containerAppFqdns = [for i in range(0, length(containerApps)): containerApps[i].properties.configuration.ingress.fqdn]
-
+param containerAppFqdn string
 
 param appendix string
 param location string
 
 var frontDoorOriginGroupName = 'fdog-${appendix}'
-var frontDoorOriginNames = [for i in range(0, length(containerAppFqdns)): 'fdon-${appendix}-${i}']
+var frontDoorOriginName = 'fdon-${appendix}'
 var frontDoorRouteName = 'fdrn-${appendix}'
 var frontDoorEndpointName = 'afd-${appendix}'
 
@@ -52,12 +48,12 @@ resource frontDoorOriginGroup 'Microsoft.Cdn/profiles/originGroups@2021-06-01' =
 }
 
 // create one origin per container app fqdn
-resource frontDoorOrigins 'Microsoft.Cdn/profiles/originGroups/origins@2024-09-01' = [for i in range(0, length(containerAppFqdns)): {
-  name: frontDoorOriginNames[i]
+resource frontDoorOrigin 'Microsoft.Cdn/profiles/originGroups/origins@2024-09-01' = {
+  name: frontDoorOriginName
   parent: frontDoorOriginGroup
   properties: {
-    hostName: containerAppFqdns[i]
-    originHostHeader: containerAppFqdns[i]
+    hostName: containerAppFqdn
+    originHostHeader: containerAppFqdn
     priority: 1
     weight: 500
     sharedPrivateLinkResource: {
@@ -70,7 +66,7 @@ resource frontDoorOrigins 'Microsoft.Cdn/profiles/originGroups/origins@2024-09-0
       status: 'Approved'
     }
   }
-}]
+}
 
 
 resource frontDoorRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2021-06-01' = {
@@ -92,7 +88,7 @@ resource frontDoorRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2021-06-01' 
     httpsRedirect: 'Enabled'
   }
   dependsOn: [
-    frontDoorOrigins
+    frontDoorOrigin
   ]
 }
 

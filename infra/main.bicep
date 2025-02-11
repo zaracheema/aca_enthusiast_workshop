@@ -5,7 +5,8 @@ var appendix = 'techconnect${uniqueString(resourceGroup().id)}'
 var containerAppsLocation = resourceGroup().location
 var acrName = 'acr${appendix}'
 var logAnalyticsWorkspaceName = 'log-${appendix}'
-var acaEnvName = 'ace-${appendix}'
+var acaEnvName = 'pub-ace-${appendix}'
+var privateAcaEnvName = 'priv-ace-${appendix}'
 
 // pe + private dns + afd
 var vnetName  = 'vnet-${appendix}'
@@ -59,12 +60,11 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09
 
 
 // ACA resources: env and containerApp
-
+// public environment
 resource env 'Microsoft.App/managedEnvironments@2024-02-02-preview' = {
   name: acaEnvName
   location: containerAppsLocation
   properties: {
-    //publicNetworkAccess: 'Disabled'
     publicNetworkAccess: 'Enabled'
 
     appLogsConfiguration: {
@@ -88,31 +88,31 @@ resource env 'Microsoft.App/managedEnvironments@2024-02-02-preview' = {
 }
 var containerAppEnv = env
 
+
+
+
+
+
+
+
 // create a quickstart app
 // import these from the top respectively
 var location = containerAppsLocation
 
-
 var containerAppNames = [
-  'quickstart'
   'request-delay-app'
   'request-logger-app'
-
 ]
 
 var containerAppImages = [
-  'mcr.microsoft.com/k8se/quickstart:latest'
   'docker.io/tdarolywala/test-images:long-running-http-conn'
   'simon.azurecr.io/request-logger:latest'
-
 ]
 
 var appPorts = [
-  '80'
   '8080'
   '8080'
 ]
-
 
 // create multiple container apps
 resource containerApps 'Microsoft.App/containerApps@2024-02-02-preview' = [for i in range(0, length(containerAppNames)): {
@@ -134,8 +134,8 @@ resource containerApps 'Microsoft.App/containerApps@2024-02-02-preview' = [for i
           name: containerAppNames[i]
           image: containerAppImages[i]
           resources: {
-            cpu: '0.5'
-            memory: '1Gi'
+            cpu: '1'
+            memory: '2Gi'
           }
         }
       ]
@@ -186,7 +186,7 @@ resource probeProblemsApp 'Microsoft.App/containerApps@2024-02-02-preview' = {
             {
               type: 'startup'
               httpGet: {
-                path: '/startup_fast'
+                path: '/startup_slow'
                 port: 8080
                 scheme: 'HTTP'
                 httpHeaders: [
@@ -200,22 +200,6 @@ resource probeProblemsApp 'Microsoft.App/containerApps@2024-02-02-preview' = {
               failureThreshold: 1
               periodSeconds: 3
             }
-            /*{
-              type: 'startup'
-              httpGet: {
-                path: '/startup_slow'
-                port: 8080
-                httpHeaders: [
-                  {
-                    name: 'Custom-Header'
-                    value: 'startup probe'
-                  }
-                ]
-              }
-              initialDelaySeconds: 3
-              failureThreshold: 1
-              periodSeconds: 3
-            }*/
           ] // probes
           
         }
@@ -235,6 +219,71 @@ resource probeProblemsApp 'Microsoft.App/containerApps@2024-02-02-preview' = {
 
 
 
+
+// private environment and app for AFD
+resource envPrivate 'Microsoft.App/managedEnvironments@2024-02-02-preview' = {
+  name: privateAcaEnvName
+  location: containerAppsLocation
+  properties: {
+    publicNetworkAccess: 'Disabled'
+
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logAnalyticsWorkspace.properties.customerId
+        sharedKey: logAnalyticsWorkspace.listKeys().primarySharedKey
+      }
+    }
+    workloadProfiles: [
+      {
+        name: 'Consumption'
+         workloadProfileType: 'Consumption'
+      }
+    ]
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+}
+
+resource containerApp 'Microsoft.App/containerApps@2024-02-02-preview' = {
+  name: 'quickstart-behind-afd'
+  location: containerAppsLocation
+  properties: {
+    environmentId: envPrivate.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 80
+        transport: 'Auto'
+      }
+    }
+    template: {
+      containers: [
+        {
+          name: 'quickstart-behind-afd'
+          image: 'mcr.microsoft.com/k8se/quickstart:latest'
+          resources: {
+            cpu: '0.5'
+            memory: '1Gi'
+          }
+        }
+      ]
+      scale: {
+        maxReplicas: '1'
+        minReplicas: '1'
+      }
+    }
+  }
+  dependsOn: [
+    envPrivate
+  ]
+}
+
+
+
+
 // create vnet and private endpoint
 module vnetPe 'vnet_pe.bicep' = {
   name: 'vnetPeDeployment'
@@ -243,11 +292,11 @@ module vnetPe 'vnet_pe.bicep' = {
     vnetName: vnetName
     subnetName: subnetName
     privateEndpointName: privateEndpointName
-    acaEnvId: env.id
+    acaEnvId: envPrivate.id
     acaEnvName: acaEnvName
   }
   dependsOn: [
-    env
+    envPrivate
   ]
 }
 
@@ -265,21 +314,19 @@ module privateDns 'private_dns.bicep' = {
   ]
 }
 
-// var containerAppFqdns = [for i in range(0, length(containerAppNames)): containerApps[i].properties.configuration.ingress.fqdn]
 
 // create Frontdoor resources
 module afd 'afd.bicep' = {
   name: 'afdDeployment'
   params: {
     frontDoorProfileName: frontDoorEndpointName
-    containerAppEnvId: env.id
-    containerAppFqdns: [for i in range(0, length(containerAppNames)): containerApps[i].properties.configuration.ingress.fqdn]
-    //containerApps: containerApps
+    containerAppEnvId: envPrivate.id
+    containerAppFqdn: containerApp.properties.configuration.ingress.fqdn
     location: location
     appendix: appendix
   }
   dependsOn: [
-    env, containerApps
+    envPrivate, containerApp
   ]
 }
 
