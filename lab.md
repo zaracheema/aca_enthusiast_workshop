@@ -4,13 +4,19 @@
 
 1. Ensure you are using a posix shell (bash, zsh, etc. in Linux, macOS, or WSL). You can also using Cloud Shell in the Azure Portal.
 
-1. Ensure you have Azure CLI and Azure Developer CLI (AzD) installed.
+1. Ensure you have Azure CLI and Azure Developer CLI (AzD) installed and you are logged in to both tools.
 
 1. Use AzD to deploy the lab resources:
 
     ```bash
+    git clone https://github.com/simonjj/aca_enthusiast_workshop
     azd up
     ```
+
+    When prompted:
+    - Provide an environment name
+    - Select the subscription you want to deploy to
+    - Create a new resource group
 
 ## Labs
 
