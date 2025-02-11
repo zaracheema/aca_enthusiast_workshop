@@ -16,7 +16,7 @@
 
 ### 1. Managed identity
 
-In the `1-image-pull` directory, you will find a simple ACA app that pulls an image from Azure Container Registry (ACR). The app is configured to use a system-assigned managed identity. You can try deploying it to the lab ACA environment:
+In the `1-image-pull` directory, you will find a simple ACA app that pulls an image from Azure Container Registry (ACR). The app is configured to use its system-assigned managed identity to authenticate with ACR. You can try deploying it to the lab ACA environment:
 
 ```bash
 az deployment group create -f 1-image-pull/app1.bicep -g $RESOURCE_GROUP_NAME
@@ -28,8 +28,10 @@ However, you'll notice it fails (if it results in a deployment that runs forever
 
 ### 3. Scaling
 
-In the Azure portal, browse to the resource group you deployed to in this lab. Find the app named `app3`.
+In the Azure portal, browse to the resource group you deployed to in this lab. Find the app named `app3`. This app processes messages from a Service Bus queue and has a scale rule configured to scale based on the number of messages in the queue.
 
-Click on the `Scale` blade and notice that the app is configured to scale to 0, but it's not scaling correctly. Figure out them problem and fix it.
+Click on the `Scale` blade and notice that the app is configured to scale to 0 when there are no messages in the queue, but it's scaled to 1. And if you add messages to the Service Bus queue, the app doesn't scale out to process them.
+
+Figure out them problem and fix it.
 
 ### 4. Networking
