@@ -44,7 +44,7 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
     }
   }
   identity: {
-    type: 'SystemAssigned'
+    type: 'UserAssigned'
   }
   dependsOn: [
     env
