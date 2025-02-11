@@ -353,3 +353,4 @@ module app3 '3-scaling.bicep' = {
 
 output ACR_NAME string = acrName
 output APP3_ID string = app3.outputs.appId
+output APP3_NAME string = app3.outputs.appName
